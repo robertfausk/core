@@ -423,6 +423,41 @@ class IriConverterTest extends TestCase
         $iriConverter->getResourceFromIri('/dummies/1');
     }
 
+    /**
+     * When a Messenger handler returns a collection (e.g. Collection<Entity>), api-platform calls
+     * getIriFromResource() with the resource class name as a string to build the collection @id.
+     * Without an explicit operation the code must force collection lookup, otherwise it falls through
+     * to an item operation, the router fails with MissingMandatoryParametersException({id}), and the
+     * response is a 500.
+     */
+    public function testGetIriFromResourceWithClassNameStringUsesCollectionRoute(): void
+    {
+        $collectionOperationName = 'collection_operation';
+        $itemOperationName = 'item_operation';
+
+        $router = $this->createMock(RouterInterface::class);
+        $router->expects($this->once())
+            ->method('generate')
+            ->with($collectionOperationName, [], UrlGeneratorInterface::ABS_PATH)
+            ->willReturn('/dummies');
+
+        $resourceMetadataCollectionFactory = $this->createMock(ResourceMetadataCollectionFactoryInterface::class);
+        $resourceMetadataCollectionFactory->expects($this->once())
+            ->method('create')
+            ->with(Dummy::class)
+            ->willReturn(new ResourceMetadataCollection(Dummy::class, [
+                (new ApiResource())->withOperations(new Operations([
+                    $itemOperationName => (new Get())->withName($itemOperationName)->withClass(Dummy::class),
+                    $collectionOperationName => (new GetCollection())->withName($collectionOperationName)->withClass(Dummy::class),
+                ])),
+            ]));
+
+        $iriConverter = $this->getMockedIriConverter($router, $resourceMetadataCollectionFactory);
+
+        // Passing the class name string (not an object) must resolve to the collection IRI.
+        $this->assertSame('/dummies', $iriConverter->getIriFromResource(Dummy::class));
+    }
+
     private function getMockedIriConverter(RouterInterface $router, ResourceMetadataCollectionFactoryInterface $resourceMetadataCollectionFactory, ?IdentifiersExtractorInterface $identifiersExtractor = null, ?ResourceClassResolverInterface $resourceClassResolver = null, ?OperationMetadataFactoryInterface $operationMetadataFactory = null): IriConverter
     {
         if (!$resourceClassResolver) {

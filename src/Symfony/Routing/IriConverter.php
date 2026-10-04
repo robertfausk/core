@@ -180,7 +180,7 @@ final class IriConverter implements IriConverterInterface
                 $operation = $this->localOperationCache[$localOperationCacheKey];
                 $identifiersExtractorOperation = $this->localIdentifiersExtractorOperationCache[$localOperationCacheKey] ?? $operation;
             } else {
-                $forceCollection = $operation instanceof CollectionOperationInterface;
+                $forceCollection = $operation instanceof CollectionOperationInterface || \is_string($resource);
                 try {
                     $operation = $this->resourceMetadataCollectionFactory->create($resourceClass)->getOperation(null, $forceCollection, true);
                     $identifiersExtractorOperation = $operation;
